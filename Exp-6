@@ -1,0 +1,49 @@
+#include <stdio.h>
+
+
+int modInverse(int a, int m) {
+    for (int i = 1; i < m; i++) {
+        if ((a * i) % m == 1)
+            return i;
+    }
+    return -1;
+}
+
+int main() {
+
+   
+
+    int p1 = 4, p2 = 19;
+    int c1 = 1, c2 = 20;
+
+    int a, b;
+    int found = 0;
+
+    
+    for (a = 1; a < 26; a++) {
+
+        int inv = modInverse(a, 26);
+
+        if (inv == -1)
+            continue;
+
+        b = (c1 - a * p1) % 26;
+
+        if (b < 0)
+            b += 26;
+
+        if (((a * p2 + b) % 26) == c2) {
+            printf("Key Found!\n");
+            printf("a = %d\n", a);
+            printf("b = %d\n", b);
+            found = 1;
+            break;
+        }
+    }
+
+    if (!found) {
+        printf("No valid key found.\n");
+    }
+
+    return 0;
+}
