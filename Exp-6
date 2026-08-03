@@ -1,49 +1,28 @@
 #include <stdio.h>
-
-
-int modInverse(int a, int m) {
-    for (int i = 1; i < m; i++) {
-        if ((a * i) % m == 1)
-            return i;
-    }
-    return -1;
-}
+#include <string.h>
+#include <ctype.h>
 
 int main() {
+    char cipher[100];
+    int a = 3, b = 15;
+    int a_inv = 9;   // Inverse of 3 modulo 26
+    int i, c, p;
 
-   
+    printf("Enter ciphertext (uppercase): ");
+    scanf("%s", cipher);
 
-    int p1 = 4, p2 = 19;
-    int c1 = 1, c2 = 20;
+    printf("Plaintext: ");
 
-    int a, b;
-    int found = 0;
-
-    
-    for (a = 1; a < 26; a++) {
-
-        int inv = modInverse(a, 26);
-
-        if (inv == -1)
-            continue;
-
-        b = (c1 - a * p1) % 26;
-
-        if (b < 0)
-            b += 26;
-
-        if (((a * p2 + b) % 26) == c2) {
-            printf("Key Found!\n");
-            printf("a = %d\n", a);
-            printf("b = %d\n", b);
-            found = 1;
-            break;
+    for(i = 0; i < strlen(cipher); i++) {
+        if(isalpha(cipher[i])) {
+            c = cipher[i] - 'A';
+            p = (a_inv * (c - b + 26)) % 26;
+            printf("%c", p + 'A');
+        } else {
+            printf("%c", cipher[i]);
         }
     }
 
-    if (!found) {
-        printf("No valid key found.\n");
-    }
-
+    printf("\n");
     return 0;
 }
