@@ -3,42 +3,29 @@
 #include <ctype.h>
 
 int main() {
-    char plaintext[100], ciphertext[100];
-
-    
-    char plain[]  = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    char plain[] = "abcdefghijklmnopqrstuvwxyz";
     char cipher[] = "CIPHERABDFGJKLMNOQSTUVWXYZ";
-
+    char text[100];
     int i, j;
 
-    printf("Enter Plaintext: ");
-    scanf("%s", plaintext);
+    printf("Enter plaintext (lowercase): ");
+    scanf("%s", text);
 
-    
-    for(i = 0; plaintext[i] != '\0'; i++)
-        plaintext[i] = toupper(plaintext[i]);
+    printf("Ciphertext: ");
 
-    
-    for(i = 0; plaintext[i] != '\0'; i++) {
-
-        if(isalpha(plaintext[i])) {
-
+    for(i = 0; text[i] != '\0'; i++) {
+        if(isalpha(text[i])) {
             for(j = 0; j < 26; j++) {
-
-                if(plaintext[i] == plain[j]) {
-
-                    ciphertext[i] = cipher[j];
+                if(text[i] == plain[j]) {
+                    printf("%c", cipher[j]);
                     break;
                 }
             }
+        } else {
+            printf("%c", text[i]);
         }
-        else
-            ciphertext[i] = plaintext[i];
     }
 
-    ciphertext[i] = '\0';
-
-    printf("\nCipher Text: %s\n", ciphertext);
-
+    printf("\n");
     return 0;
 }
