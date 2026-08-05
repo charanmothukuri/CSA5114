@@ -1,0 +1,70 @@
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+int main()
+{
+    char plaintext[] = "meet me at the usual place at ten rather than eight oclock";
+    char text[200];
+    char cipher[200];
+    char decrypt[200];
+
+    int key[2][2] = {
+        {9,4},
+        {5,7}
+    };
+
+    int inv[2][2] = {
+        {5,12},
+        {15,25}
+    };
+
+    int i,j=0;
+
+    
+    for(i=0; plaintext[i]!='\0'; i++)
+    {
+        if(isalpha(plaintext[i]))
+            text[j++] = tolower(plaintext[i]);
+    }
+    text[j]='\0';
+
+  
+    if(strlen(text)%2!=0)
+    {
+        text[j++]='x';
+        text[j]='\0';
+    }
+
+    printf("Plaintext : %s\n\n",text);
+
+    
+    for(i=0;i<strlen(text);i+=2)
+    {
+        int p1=text[i]-'a';
+        int p2=text[i+1]-'a';
+
+        cipher[i]=((key[0][0]*p1+key[0][1]*p2)%26)+'a';
+        cipher[i+1]=((key[1][0]*p1+key[1][1]*p2)%26)+'a';
+    }
+
+    cipher[strlen(text)]='\0';
+
+    printf("Ciphertext: %s\n\n",cipher);
+
+    
+    for(i=0;i<strlen(cipher);i+=2)
+    {
+        int c1=cipher[i]-'a';
+        int c2=cipher[i+1]-'a';
+
+        decrypt[i]=((inv[0][0]*c1+inv[0][1]*c2)%26)+'a';
+        decrypt[i+1]=((inv[1][0]*c1+inv[1][1]*c2)%26)+'a';
+    }
+
+    decrypt[strlen(cipher)]='\0';
+
+    printf("Decrypted : %s\n",decrypt);
+
+    return 0;
+}
