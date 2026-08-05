@@ -1,0 +1,36 @@
+#include <stdio.h>
+#include <math.h>
+
+int main()
+{
+    int i;
+    long double factorial = 1.0;
+
+    
+    for(i = 1; i <= 25; i++)
+    {
+        factorial = factorial * i;
+    }
+
+    
+    long double power2 = log2l(factorial);
+
+    
+    long double uniqueKeys = factorial / 2.0;
+    long double uniquePower2 = log2l(uniqueKeys);
+
+    printf("===========================================\n");
+    printf("      PLAYFAIR CIPHER KEY ANALYSIS\n");
+    printf("===========================================\n\n");
+
+    printf("Total Possible Keys (25!) = %.0Lf\n", factorial);
+    printf("Scientific Notation        = %.5Le\n", factorial);
+    printf("Approximate Power of 2     = 2^%.2Lf\n\n", power2);
+
+    printf("Effectively Unique Keys (25!/2)\n");
+    printf("Unique Keys               = %.0Lf\n", uniqueKeys);
+    printf("Scientific Notation       = %.5Le\n", uniqueKeys);
+    printf("Approximate Power of 2    = 2^%.2Lf\n", uniquePower2);
+
+    return 0;
+}
