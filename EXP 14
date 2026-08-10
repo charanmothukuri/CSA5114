@@ -1,0 +1,73 @@
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+int main()
+{
+    char plaintext1[] = "send more money";
+    char plaintext2[] = "cash not needed";
+
+    int key1[] = {9, 0, 1, 7, 23, 15, 21, 14, 11, 11, 2, 8, 9};
+
+    char ciphertext[100];
+    int i, j = 0;
+    int len;
+
+    /* Part (a): Encryption */
+    printf("PART (a): ENCRYPTION\n");
+    printf("Plaintext : %s\n", plaintext1);
+
+    len = strlen(plaintext1);
+
+    for (i = 0; i < len; i++)
+    {
+        if (isalpha(plaintext1[i]))
+        {
+            int p = tolower(plaintext1[i]) - 'a';
+            int c = (p + key1[j]) % 26;
+
+            ciphertext[i] = c + 'a';
+            j++;
+        }
+        else
+        {
+            ciphertext[i] = plaintext1[i];
+        }
+    }
+
+    ciphertext[len] = '\0';
+
+    printf("Key       : ");
+    for (i = 0; i < j; i++)
+        printf("%d ", key1[i]);
+
+    printf("\nCiphertext: %s\n\n", ciphertext);
+
+
+    /* Part (b): Find the key */
+    printf("PART (b): FINDING THE KEY\n");
+    printf("Ciphertext: %s\n", ciphertext);
+    printf("Plaintext : %s\n", plaintext2);
+
+    j = 0;
+
+    printf("Key       : ");
+
+    for (i = 0; i < len; i++)
+    {
+        if (isalpha(ciphertext[i]))
+        {
+            int c = ciphertext[i] - 'a';
+            int p = plaintext2[i] - 'a';
+
+            int key = (c - p + 26) % 26;
+
+            printf("%d ", key);
+            j++;
+        }
+    }
+
+    printf("\n");
+
+    return 0;
+}
