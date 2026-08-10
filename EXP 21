@@ -1,0 +1,258 @@
+#include <stdio.h>
+#include <string.h>
+#include <openssl/aes.h>
+
+#define BLOCK_SIZE 16
+#define MAX_SIZE 1024
+
+void printHex(const char *name,
+              unsigned char data[],
+              int length)
+{
+    int i;
+
+    printf("%s: ", name);
+
+    for (i = 0; i < length; i++)
+        printf("%02X ", data[i]);
+
+    printf("\n");
+}
+
+/*
+ * Padding:
+ * Add 0x80 followed by 0x00 bytes.
+ *
+ * If the message is already a multiple of
+ * 16 bytes, a complete padding block is added.
+ */
+int addPadding(unsigned char data[], int length)
+{
+    int padding;
+    int newLength;
+
+    padding = BLOCK_SIZE - (length % BLOCK_SIZE);
+
+    /*
+     * If length is already a multiple of the
+     * block size, add a complete block.
+     */
+    if (padding == 0)
+        padding = BLOCK_SIZE;
+
+    newLength = length + padding;
+
+    data[length] = 0x80;
+
+    length++;
+
+    while (length < newLength)
+    {
+        data[length] = 0x00;
+        length++;
+    }
+
+    return newLength;
+}
+
+/* XOR two blocks */
+void xorBlock(unsigned char a[],
+              unsigned char b[],
+              unsigned char result[])
+{
+    int i;
+
+    for (i = 0; i < BLOCK_SIZE; i++)
+        result[i] = a[i] ^ b[i];
+}
+
+/*
+ * ECB Encryption
+ */
+void ECB_encrypt(unsigned char plaintext[],
+                 unsigned char ciphertext[],
+                 int length,
+                 AES_KEY *key)
+{
+    int i;
+
+    for (i = 0; i < length; i += BLOCK_SIZE)
+    {
+        AES_encrypt(&plaintext[i],
+                    &ciphertext[i],
+                    key);
+    }
+}
+
+/*
+ * CBC Encryption
+ */
+void CBC_encrypt(unsigned char plaintext[],
+                 unsigned char ciphertext[],
+                 int length,
+                 unsigned char iv[],
+                 AES_KEY *key)
+{
+    unsigned char previous[BLOCK_SIZE];
+    unsigned char temp[BLOCK_SIZE];
+
+    int i;
+
+    memcpy(previous, iv, BLOCK_SIZE);
+
+    for (i = 0; i < length; i += BLOCK_SIZE)
+    {
+        xorBlock(&plaintext[i],
+                 previous,
+                 temp);
+
+        AES_encrypt(temp,
+                    &ciphertext[i],
+                    key);
+
+        memcpy(previous,
+               &ciphertext[i],
+               BLOCK_SIZE);
+    }
+}
+
+/*
+ * CFB Encryption
+ *
+ * Full-block CFB is used here, so the
+ * segment size = 128 bits.
+ */
+void CFB_encrypt(unsigned char plaintext[],
+                 unsigned char ciphertext[],
+                 int length,
+                 unsigned char iv[],
+                 AES_KEY *key)
+{
+    unsigned char feedback[BLOCK_SIZE];
+    unsigned char encryptedIV[BLOCK_SIZE];
+
+    int i;
+    int j;
+
+    memcpy(feedback, iv, BLOCK_SIZE);
+
+    for (i = 0; i < length; i += BLOCK_SIZE)
+    {
+        AES_encrypt(feedback,
+                    encryptedIV,
+                    key);
+
+        for (j = 0; j < BLOCK_SIZE; j++)
+        {
+            ciphertext[i + j] =
+                plaintext[i + j] ^
+                encryptedIV[j];
+        }
+
+        /*
+         * For full-block CFB,
+         * ciphertext becomes feedback.
+         */
+        memcpy(feedback,
+               &ciphertext[i],
+               BLOCK_SIZE);
+    }
+}
+
+int main()
+{
+    unsigned char plaintext[MAX_SIZE];
+    unsigned char ecbCipher[MAX_SIZE];
+    unsigned char cbcCipher[MAX_SIZE];
+    unsigned char cfbCipher[MAX_SIZE];
+
+    unsigned char iv[BLOCK_SIZE] =
+        "1234567890ABCDEF";
+
+    unsigned char keyData[BLOCK_SIZE] =
+        "ABCDEFGHIJKLMNOP";
+
+    AES_KEY key;
+
+    int length;
+    int paddedLength;
+
+    printf("========================================\n");
+    printf(" AES ECB, CBC AND CFB DEMONSTRATION\n");
+    printf("========================================\n");
+
+    printf("\nEnter plaintext: ");
+
+    fgets((char *)plaintext,
+          MAX_SIZE,
+          stdin);
+
+    length = strlen((char *)plaintext);
+
+    if (plaintext[length - 1] == '\n')
+    {
+        plaintext[length - 1] = '\0';
+        length--;
+    }
+
+    /*
+     * Add padding.
+     */
+    paddedLength =
+        addPadding(plaintext, length);
+
+    printf("\nOriginal length : %d bytes\n",
+           length);
+
+    printf("Padded length   : %d bytes\n",
+           paddedLength);
+
+    /*
+     * Create AES-128 key.
+     */
+    AES_set_encrypt_key(keyData,
+                        128,
+                        &key);
+
+    /*
+     * ECB
+     */
+    ECB_encrypt(plaintext,
+                ecbCipher,
+                paddedLength,
+                &key);
+
+    /*
+     * CBC
+     */
+    CBC_encrypt(plaintext,
+                cbcCipher,
+                paddedLength,
+                iv,
+                &key);
+
+    /*
+     * CFB
+     */
+    CFB_encrypt(plaintext,
+                cfbCipher,
+                paddedLength,
+                iv,
+                &key);
+
+    printf("\n");
+
+    printHex("ECB Ciphertext",
+             ecbCipher,
+             paddedLength);
+
+    printHex("CBC Ciphertext",
+             cbcCipher,
+             paddedLength);
+
+    printHex("CFB Ciphertext",
+             cfbCipher,
+             paddedLength);
+
+    return 0;
+}
