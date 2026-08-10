@@ -1,0 +1,103 @@
+#include <stdio.h>
+
+/* Find p and q using trial division */
+void findFactors(int n, int *p, int *q)
+{
+    int i;
+
+    for (i = 2; i * i <= n; i++)
+    {
+        if (n % i == 0)
+        {
+            *p = i;
+            *q = n / i;
+            return;
+        }
+    }
+}
+
+/* Extended Euclidean Algorithm */
+int extendedGCD(int a, int b, int *x, int *y)
+{
+    int x1, y1;
+    int gcd;
+
+    if (b == 0)
+    {
+        *x = 1;
+        *y = 0;
+        return a;
+    }
+
+    gcd = extendedGCD(b, a % b, &x1, &y1);
+
+    *x = y1;
+    *y = x1 - (a / b) * y1;
+
+    return gcd;
+}
+
+/* Find modular inverse */
+int modInverse(int e, int phi)
+{
+    int x, y;
+    int gcd;
+    int d;
+
+    gcd = extendedGCD(e, phi, &x, &y);
+
+    if (gcd != 1)
+        return -1;
+
+    d = x % phi;
+
+    if (d < 0)
+        d += phi;
+
+    return d;
+}
+
+int main()
+{
+    int e = 31;
+    int n = 3599;
+
+    int p, q;
+    int phi;
+    int d;
+
+    printf("=====================================\n");
+    printf("          RSA PRIVATE KEY\n");
+    printf("=====================================\n");
+
+    printf("\nPublic key:\n");
+    printf("e = %d\n", e);
+    printf("n = %d\n", n);
+
+    /* Step 1: Find p and q */
+    findFactors(n, &p, &q);
+
+    printf("\nStep 1: Factorization\n");
+    printf("p = %d\n", p);
+    printf("q = %d\n", q);
+
+    /* Step 2: Calculate phi(n) */
+    phi = (p - 1) * (q - 1);
+
+    printf("\nStep 2: Euler Totient\n");
+    printf("phi(n) = (%d - 1)(%d - 1)\n", p, q);
+    printf("phi(n) = %d\n", phi);
+
+    /* Step 3: Find d */
+    d = modInverse(e, phi);
+
+    printf("\nStep 3: Modular Inverse\n");
+    printf("d = %d^(-1) mod %d\n", e, phi);
+    printf("d = %d\n", d);
+
+    printf("\n=====================================\n");
+    printf("Private Key = (%d, %d)\n", d, n);
+    printf("=====================================\n");
+
+    return 0;
+}
