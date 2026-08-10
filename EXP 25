@@ -1,1 +1,215 @@
+#include <stdio.h>
 
+/* Euclidean Algorithm */
+int gcd(int a, int b)
+{
+    int temp;
+
+    while (b != 0)
+    {
+        temp = a % b;
+        a = b;
+        b = temp;
+    }
+
+    return a;
+}
+
+/* Extended Euclidean Algorithm */
+int extendedGCD(int a, int b, int *x, int *y)
+{
+    int x1, y1;
+    int g;
+
+    if (b == 0)
+    {
+        *x = 1;
+        *y = 0;
+        return a;
+    }
+
+    g = extendedGCD(b, a % b, &x1, &y1);
+
+    *x = y1;
+    *y = x1 - (a / b) * y1;
+
+    return g;
+}
+
+/* Modular inverse */
+int modInverse(int e, int phi)
+{
+    int x, y;
+    int g;
+
+    g = extendedGCD(e, phi, &x, &y);
+
+    if (g != 1)
+        return -1;
+
+    x = x % phi;
+
+    if (x < 0)
+        x += phi;
+
+    return x;
+}
+
+/* Modular exponentiation */
+long long modPower(long long base,
+                   long long exponent,
+                   long long modulus)
+{
+    long long result = 1;
+
+    base = base % modulus;
+
+    while (exponent > 0)
+    {
+        if (exponent % 2 == 1)
+        {
+            result =
+                (result * base) % modulus;
+        }
+
+        base =
+            (base * base) % modulus;
+
+        exponent /= 2;
+    }
+
+    return result;
+}
+
+int main()
+{
+    int n;
+    int e;
+    int m;
+
+    int commonFactor;
+    int p, q;
+    int phi;
+    int d;
+
+    int ciphertext;
+    int plaintext;
+
+    printf("========================================\n");
+    printf("       RSA FACTORING ATTACK\n");
+    printf("========================================\n");
+
+    /*
+     * Example RSA values.
+     *
+     * n = 59 * 61 = 3599
+     * e = 31
+     */
+    n = 3599;
+    e = 31;
+
+    /*
+     * Suppose we are told that one plaintext
+     * block is 59.
+     *
+     * Since 59 is a factor of n,
+     * gcd(59,3599) = 59.
+     */
+    m = 59;
+
+    printf("\nPublic key:\n");
+    printf("n = %d\n", n);
+    printf("e = %d\n", e);
+
+    printf("\nKnown plaintext block:\n");
+    printf("m = %d\n", m);
+
+    /*
+     * Find gcd(m,n)
+     */
+    commonFactor = gcd(m, n);
+
+    printf("\ngcd(m,n) = gcd(%d,%d)\n",
+           m, n);
+
+    printf("gcd(m,n) = %d\n",
+           commonFactor);
+
+    /*
+     * Check whether the factor is useful.
+     */
+    if (commonFactor == 1 ||
+        commonFactor == n)
+    {
+        printf("\nNo useful factor was found.\n");
+        printf("The known plaintext does not help\n");
+        printf("to factor n.\n");
+
+        return 0;
+    }
+
+    /*
+     * We have successfully factored n.
+     */
+    p = commonFactor;
+    q = n / p;
+
+    printf("\nA non-trivial factor was found!\n");
+    printf("p = %d\n", p);
+    printf("q = %d\n", q);
+
+    /*
+     * Calculate Euler's phi.
+     */
+    phi = (p - 1) * (q - 1);
+
+    printf("\nphi(n) = %d\n", phi);
+
+    /*
+     * Find private exponent d.
+     */
+    d = modInverse(e, phi);
+
+    if (d == -1)
+    {
+        printf("No modular inverse exists.\n");
+        return 0;
+    }
+
+    printf("Private exponent d = %d\n", d);
+
+    /*
+     * Demonstrate decryption of an RSA block.
+     *
+     * Choose a sample plaintext.
+     */
+    plaintext = 123;
+
+    ciphertext =
+        (int)modPower(plaintext,
+                      e,
+                      n);
+
+    printf("\nExample RSA block:\n");
+
+    printf("Plaintext  = %d\n",
+           plaintext);
+
+    printf("Ciphertext = %d\n",
+           ciphertext);
+
+    plaintext =
+        (int)modPower(ciphertext,
+                      d,
+                      n);
+
+    printf("Decrypted  = %d\n",
+           plaintext);
+
+    printf("\n========================================\n");
+    printf("Attack successful!\n");
+    printf("Private key = (%d,%d)\n", d, n);
+    printf("========================================\n");
+
+    return 0;
+}
