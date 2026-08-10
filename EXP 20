@@ -1,0 +1,111 @@
+#include <stdio.h>
+#include <string.h>
+#include <openssl/aes.h>
+
+void printBlock(const char *name, unsigned char block[16])
+{
+    int i;
+
+    printf("%s: ", name);
+
+    for (i = 0; i < 16; i++)
+        printf("%02X ", block[i]);
+
+    printf("\n");
+}
+
+int main()
+{
+    AES_KEY encKey;
+    AES_KEY decKey;
+
+    unsigned char key[16] = "1234567890ABCDEF";
+    unsigned char iv[16]  = "1234567890ABCDEF";
+
+    unsigned char plaintext[3][16] = {
+        "BLOCK-1-1234567",
+        "BLOCK-2-1234567",
+        "BLOCK-3-1234567"
+    };
+
+    unsigned char cbcCipher[3][16];
+    unsigned char cbcReceived[3][16];
+    unsigned char decrypted[3][16];
+
+    unsigned char previous[16];
+
+    int i, j;
+
+    AES_set_encrypt_key(key, 128, &encKey);
+    AES_set_decrypt_key(key, 128, &decKey);
+
+    printf("========================================\n");
+    printf(" CBC ERROR PROPAGATION DEMONSTRATION\n");
+    printf("========================================\n");
+
+    /*
+     * CBC ENCRYPTION
+     */
+    memcpy(previous, iv, 16);
+
+    for (i = 0; i < 3; i++)
+    {
+        unsigned char temp[16];
+
+        for (j = 0; j < 16; j++)
+            temp[j] = plaintext[i][j] ^ previous[j];
+
+        AES_encrypt(temp, cbcCipher[i], &encKey);
+
+        memcpy(previous, cbcCipher[i], 16);
+    }
+
+    printf("\nOriginal ciphertext:\n");
+
+    for (i = 0; i < 3; i++)
+        printBlock("C", cbcCipher[i]);
+
+    /*
+     * Copy ciphertext as if it was transmitted.
+     */
+    memcpy(cbcReceived, cbcCipher, sizeof(cbcCipher));
+
+    /*
+     * Introduce one-bit error in C1.
+     */
+    cbcReceived[0][0] ^= 0x01;
+
+    printf("\nAfter introducing a 1-bit error in C1:\n");
+
+    for (i = 0; i < 3; i++)
+        printBlock("Received C", cbcReceived[i]);
+
+    /*
+     * CBC DECRYPTION
+     */
+    memcpy(previous, iv, 16);
+
+    for (i = 0; i < 3; i++)
+    {
+        AES_decrypt(cbcReceived[i], decrypted[i], &decKey);
+
+        for (j = 0; j < 16; j++)
+            decrypted[i][j] ^= previous[j];
+
+        memcpy(previous, cbcReceived[i], 16);
+    }
+
+    printf("\nDecrypted plaintext after C1 error:\n");
+
+    for (i = 0; i < 3; i++)
+    {
+        printf("P%d: ", i + 1);
+
+        for (j = 0; j < 16; j++)
+            printf("%c", decrypted[i][j]);
+
+        printf("\n");
+    }
+
+    return 0;
+}
