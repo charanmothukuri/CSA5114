@@ -1,0 +1,327 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <time.h>
+
+#define MAX 2000
+#define ALPHABET 26
+#define MAX_RESULTS 50
+
+/* English letter frequencies */
+double englishFreq[26] = {
+    8.167, 1.492, 2.782, 4.253, 12.702, 2.228,
+    2.015, 6.094, 6.966, 0.153, 0.772, 4.025,
+    2.406, 6.749, 7.507, 1.929, 0.095, 5.987,
+    6.327, 9.056, 2.758, 0.978, 2.360, 0.150,
+    1.974, 0.074
+};
+
+/* Common English letter pairs */
+const char *commonBigrams[] = {
+    "TH", "HE", "IN", "ER", "AN", "RE", "ON",
+    "AT", "EN", "ND", "TI", "ES", "OR", "TE",
+    "OF", "ED", "IS", "IT", "AL", "AR", "ST",
+    "TO", "NT", "NG", "SE", "HA", "AS", "OU",
+    "IO", "LE", "VE", "CO", "ME", "DE", "HI",
+    "RI", "RO", "IC", "NE", "EA", "RA"
+};
+
+#define BIGRAM_COUNT 42
+
+typedef struct {
+    char text[MAX];
+    double score;
+} Result;
+
+/* Decrypt using substitution key */
+void decrypt(char cipher[], char plain[], int key[])
+{
+    int i;
+
+    for (i = 0; cipher[i] != '\0'; i++)
+    {
+        if (isalpha((unsigned char)cipher[i]))
+        {
+            int c = tolower((unsigned char)cipher[i]) - 'a';
+
+            plain[i] = key[c] + 'a';
+        }
+        else
+        {
+            plain[i] = cipher[i];
+        }
+    }
+
+    plain[i] = '\0';
+}
+
+/* Calculate frequency score */
+double frequencyScore(char text[])
+{
+    int count[26] = {0};
+    int total = 0;
+    int i;
+    double score = 0.0;
+
+    for (i = 0; text[i] != '\0'; i++)
+    {
+        if (isalpha((unsigned char)text[i]))
+        {
+            int x = tolower((unsigned char)text[i]) - 'a';
+            count[x]++;
+            total++;
+        }
+    }
+
+    if (total == 0)
+        return -999999;
+
+    for (i = 0; i < 26; i++)
+    {
+        double observed =
+            (double)count[i] / total * 100.0;
+
+        /*
+           Smaller difference means
+           more English-like frequency.
+        */
+        score -= (observed - englishFreq[i]) *
+                 (observed - englishFreq[i]);
+    }
+
+    return score;
+}
+
+/* Give extra score for common English bigrams */
+double bigramScore(char text[])
+{
+    int i, j;
+    double score = 0.0;
+
+    for (i = 0; text[i + 1] != '\0'; i++)
+    {
+        if (isalpha((unsigned char)text[i]) &&
+            isalpha((unsigned char)text[i + 1]))
+        {
+            char pair[3];
+
+            pair[0] = toupper((unsigned char)text[i]);
+            pair[1] = toupper((unsigned char)text[i + 1]);
+            pair[2] = '\0';
+
+            for (j = 0; j < BIGRAM_COUNT; j++)
+            {
+                if (strcmp(pair, commonBigrams[j]) == 0)
+                {
+                    score += 3.0;
+                    break;
+                }
+            }
+        }
+    }
+
+    return score;
+}
+
+/* Overall English score */
+double calculateScore(char text[])
+{
+    return frequencyScore(text) + bigramScore(text);
+}
+
+/* Create initial key based on frequency */
+void createInitialKey(char cipher[], int key[])
+{
+    int count[26] = {0};
+    int i, j;
+    int order[26];
+
+    /*
+       Order of English frequency:
+       E T A O I N S H R D L C U M W F G Y P B V K J X Q Z
+    */
+    int englishOrder[26] = {
+        4, 19, 0, 14, 8, 13, 18, 7, 17, 3,
+        11, 2, 20, 12, 22, 5, 6, 24, 15, 1,
+        21, 10, 9, 23, 16, 25
+    };
+
+    for (i = 0; i < 26; i++)
+        order[i] = i;
+
+    /* Count ciphertext letters */
+    for (i = 0; cipher[i] != '\0'; i++)
+    {
+        if (isalpha((unsigned char)cipher[i]))
+        {
+            int x = tolower((unsigned char)cipher[i]) - 'a';
+            count[x]++;
+        }
+    }
+
+    /* Sort cipher letters by frequency */
+    for (i = 0; i < 25; i++)
+    {
+        for (j = i + 1; j < 26; j++)
+        {
+            if (count[order[j]] > count[order[i]])
+            {
+                int temp = order[i];
+                order[i] = order[j];
+                order[j] = temp;
+            }
+        }
+    }
+
+    /*
+       Map most frequent ciphertext letter
+       to most frequent English letter.
+    */
+    for (i = 0; i < 26; i++)
+        key[order[i]] = englishOrder[i];
+}
+
+/* Randomly swap two mappings */
+void swapKey(int key[])
+{
+    int a = rand() % 26;
+    int b = rand() % 26;
+    int temp;
+
+    temp = key[a];
+    key[a] = key[b];
+    key[b] = temp;
+}
+
+/* Copy key */
+void copyKey(int source[], int destination[])
+{
+    int i;
+
+    for (i = 0; i < 26; i++)
+        destination[i] = source[i];
+}
+
+/* Hill-climbing attack */
+void hillClimb(char cipher[], int bestKey[], double *bestScore)
+{
+    int key[26];
+    int newKey[26];
+
+    char plaintext[MAX];
+
+    int i;
+    double currentScore;
+    double newScore;
+
+    createInitialKey(cipher, key);
+
+    decrypt(cipher, plaintext, key);
+
+    currentScore = calculateScore(plaintext);
+
+    /*
+       Perform many random modifications
+       to improve the substitution key.
+    */
+    for (i = 0; i < 50000; i++)
+    {
+        copyKey(key, newKey);
+
+        swapKey(newKey);
+
+        decrypt(cipher, plaintext, newKey);
+
+        newScore = calculateScore(plaintext);
+
+        if (newScore > currentScore)
+        {
+            copyKey(newKey, key);
+            currentScore = newScore;
+        }
+    }
+
+    copyKey(key, bestKey);
+    *bestScore = currentScore;
+}
+
+int main()
+{
+    char ciphertext[MAX];
+
+    Result results[MAX_RESULTS];
+
+    int top;
+    int i, j;
+
+    int bestKey[26];
+
+    srand((unsigned int)time(NULL));
+
+    printf("============================================\n");
+    printf(" MONOALPHABETIC SUBSTITUTION ATTACK\n");
+    printf("============================================\n");
+
+    printf("\nEnter ciphertext:\n");
+
+    fgets(ciphertext, MAX, stdin);
+
+    ciphertext[strcspn(ciphertext, "\n")] = '\0';
+
+    printf("\nHow many possible plaintexts? ");
+
+    scanf("%d", &top);
+
+    if (top < 1)
+        top = 1;
+
+    if (top > MAX_RESULTS)
+        top = MAX_RESULTS;
+
+ 
+    for (i = 0; i < top; i++)
+    {
+        double score;
+
+        hillClimb(ciphertext, bestKey, &score);
+
+        decrypt(ciphertext, results[i].text, bestKey);
+
+        results[i].score = score;
+    }
+
+    /*
+       Sort results from highest
+       likelihood to lowest.
+    */
+    for (i = 0; i < top - 1; i++)
+    {
+        for (j = i + 1; j < top; j++)
+        {
+            if (results[j].score > results[i].score)
+            {
+                Result temp;
+
+                temp = results[i];
+                results[i] = results[j];
+                results[j] = temp;
+            }
+        }
+    }
+
+    printf("\n============================================\n");
+    printf(" TOP %d POSSIBLE PLAINTEXTS\n", top);
+    printf("============================================\n");
+
+    for (i = 0; i < top; i++)
+    {
+        printf("\n%d. Score: %.3f\n",
+               i + 1,
+               results[i].score);
+
+        printf("   %s\n", results[i].text);
+    }
+
+    return 0;
+}
