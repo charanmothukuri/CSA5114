@@ -1,0 +1,424 @@
+#include <stdio.h>
+#include <string.h>
+
+/* S-DES permutation tables */
+
+/* P10 */
+int P10[10] = {3, 5, 2, 7, 4, 10, 1, 9, 8, 6};
+
+/* P8 */
+int P8[8] = {6, 3, 7, 4, 8, 5, 10, 9};
+
+/* Initial Permutation */
+int IP[8] = {2, 6, 3, 1, 4, 8, 5, 7};
+
+/* Inverse Initial Permutation */
+int IP_INV[8] = {4, 1, 3, 5, 7, 2, 8, 6};
+
+/* Expansion/Permutation */
+int EP[8] = {4, 1, 2, 3, 2, 3, 4, 1};
+
+/* P4 */
+int P4[4] = {2, 4, 3, 1};
+
+/* S-Box S0 */
+int S0[4][4] = {
+    {1, 0, 3, 2},
+    {3, 2, 1, 0},
+    {0, 2, 1, 3},
+    {3, 1, 3, 2}
+};
+
+/* S-Box S1 */
+int S1[4][4] = {
+    {0, 1, 2, 3},
+    {2, 0, 1, 3},
+    {3, 0, 1, 0},
+    {2, 1, 0, 3}
+};
+
+/* Generic permutation function */
+int permutation(int input, int table[],
+                int tableSize, int inputBits)
+{
+    int output = 0;
+    int i;
+
+    for (i = 0; i < tableSize; i++)
+    {
+        int bit;
+
+        bit = (input >> (inputBits - table[i])) & 1;
+
+        output = (output << 1) | bit;
+    }
+
+    return output;
+}
+
+/* Left circular shift of a 5-bit value */
+int leftShift5(int value, int shifts)
+{
+    value &= 0x1F;
+
+    return ((value << shifts) |
+            (value >> (5 - shifts))) & 0x1F;
+}
+
+/* Generate S-DES keys K1 and K2 */
+void generateKeys(int key10, int *K1, int *K2)
+{
+    int p10;
+    int left;
+    int right;
+
+    /* Apply P10 */
+    p10 = permutation(key10, P10, 10, 10);
+
+    /* Split into two 5-bit halves */
+    left = (p10 >> 5) & 0x1F;
+    right = p10 & 0x1F;
+
+    /* LS-1 */
+    left = leftShift5(left, 1);
+    right = leftShift5(right, 1);
+
+    /* Generate K1 */
+    *K1 = permutation(
+        (left << 5) | right,
+        P8,
+        8,
+        10
+    );
+
+    /* LS-2 */
+    left = leftShift5(left, 2);
+    right = leftShift5(right, 2);
+
+    /* Generate K2 */
+    *K2 = permutation(
+        (left << 5) | right,
+        P8,
+        8,
+        10
+    );
+}
+
+/* S-Box lookup for a 4-bit input */
+int sbox(int input, int box[4][4])
+{
+    int row;
+    int column;
+
+    /*
+     * 4-bit input:
+     *
+     * b3 b2 b1 b0
+     *
+     * row    = b3b0
+     * column = b2b1
+     */
+
+    row = ((input & 0x08) >> 2) |
+          (input & 0x01);
+
+    column = (input >> 1) & 0x03;
+
+    return box[row][column];
+}
+
+/* S-DES F function */
+int fk(int input, int key)
+{
+    int left;
+    int right;
+    int expanded;
+    int xored;
+    int sboxOutput;
+    int p4;
+
+    left = (input >> 4) & 0x0F;
+    right = input & 0x0F;
+
+    /* Expansion permutation */
+    expanded = permutation(
+        right,
+        EP,
+        8,
+        4
+    );
+
+    /* XOR with round key */
+    xored = expanded ^ key;
+
+    /* S-box substitution */
+    sboxOutput =
+        (sbox((xored >> 4) & 0x0F, S0) << 2)
+        |
+        sbox(xored & 0x0F, S1);
+
+    /* P4 permutation */
+    p4 = permutation(
+        sboxOutput,
+        P4,
+        4,
+        4
+    );
+
+    /* XOR left half with P4 */
+    left = left ^ p4;
+
+    return (left << 4) | right;
+}
+
+/* Swap left and right 4-bit halves */
+int swapHalves(int input)
+{
+    int left;
+    int right;
+
+    left = (input >> 4) & 0x0F;
+    right = input & 0x0F;
+
+    return (right << 4) | left;
+}
+
+/* S-DES encryption */
+int SDES_encrypt(int plaintext, int K1, int K2)
+{
+    int value;
+
+    /* Initial permutation */
+    value = permutation(
+        plaintext,
+        IP,
+        8,
+        8
+    );
+
+    /* Round 1 with K1 */
+    value = fk(value, K1);
+
+    /* Swap halves */
+    value = swapHalves(value);
+
+    /* Round 2 with K2 */
+    value = fk(value, K2);
+
+    /* Inverse initial permutation */
+    value = permutation(
+        value,
+        IP_INV,
+        8,
+        8
+    );
+
+    return value;
+}
+
+/* S-DES decryption */
+int SDES_decrypt(int ciphertext, int K1, int K2)
+{
+    int value;
+
+    /* Initial permutation */
+    value = permutation(
+        ciphertext,
+        IP,
+        8,
+        8
+    );
+
+    /*
+     * Decryption uses K2 first,
+     * followed by K1.
+     */
+    value = fk(value, K2);
+
+    /* Swap halves */
+    value = swapHalves(value);
+
+    /* Round 2 with K1 */
+    value = fk(value, K1);
+
+    /* Inverse initial permutation */
+    value = permutation(
+        value,
+        IP_INV,
+        8,
+        8
+    );
+
+    return value;
+}
+
+/* Print an 8-bit value in binary */
+void printBinary8(int value)
+{
+    int i;
+
+    for (i = 7; i >= 0; i--)
+        printf("%d", (value >> i) & 1);
+}
+
+/* CBC Encryption */
+void CBC_encrypt(
+    int plaintext[],
+    int ciphertext[],
+    int blocks,
+    int IV,
+    int K1,
+    int K2)
+{
+    int i;
+    int previous = IV;
+
+    for (i = 0; i < blocks; i++)
+    {
+        /*
+         * CBC:
+         *
+         * C[i] = E(P[i] XOR C[i-1])
+         *
+         * For first block:
+         * C[-1] = IV
+         */
+        int input = plaintext[i] ^ previous;
+
+        ciphertext[i] =
+            SDES_encrypt(input, K1, K2);
+
+        previous = ciphertext[i];
+    }
+}
+
+/* CBC Decryption */
+void CBC_decrypt(
+    int ciphertext[],
+    int plaintext[],
+    int blocks,
+    int IV,
+    int K1,
+    int K2)
+{
+    int i;
+    int previous = IV;
+
+    for (i = 0; i < blocks; i++)
+    {
+        /*
+         * CBC:
+         *
+         * P[i] = D(C[i]) XOR C[i-1]
+         */
+        plaintext[i] =
+            SDES_decrypt(
+                ciphertext[i],
+                K1,
+                K2
+            ) ^ previous;
+
+        previous = ciphertext[i];
+    }
+}
+
+int main()
+{
+    /*
+     * Given test data
+     *
+     * Key = 01111 11101
+     *     = 0111111101
+     *     = 0x1FD
+     */
+    int key = 0x1FD;
+
+    /*
+     * IV = 10101010
+     *    = 0xAA
+     */
+    int IV = 0xAA;
+
+    
+    int plaintext[2] = {
+        0x01,
+        0x23
+    };
+
+    int ciphertext[2];
+    int decrypted[2];
+
+    int K1, K2;
+
+    int i;
+
+    
+    generateKeys(key, &K1, &K2);
+
+    printf("========================================\n");
+    printf("       S-DES CBC MODE\n");
+    printf("========================================\n");
+
+    printf("\nKey : ");
+    for (i = 9; i >= 0; i--)
+        printf("%d", (key >> i) & 1);
+
+    printf("\nIV  : ");
+    printBinary8(IV);
+
+    printf("\n\nGenerated S-DES Keys:\n");
+
+    printf("K1  : ");
+    printBinary8(K1);
+
+    printf("\nK2  : ");
+    printBinary8(K2);
+
+    
+    CBC_encrypt(
+        plaintext,
+        ciphertext,
+        2,
+        IV,
+        K1,
+        K2
+    );
+
+    printf("\n\nPlaintext:\n");
+
+    for (i = 0; i < 2; i++)
+    {
+        printBinary8(plaintext[i]);
+        printf(" ");
+    }
+
+    printf("\n\nCiphertext:\n");
+
+    for (i = 0; i < 2; i++)
+    {
+        printBinary8(ciphertext[i]);
+        printf(" ");
+    }
+
+    
+    CBC_decrypt(
+        ciphertext,
+        decrypted,
+        2,
+        IV,
+        K1,
+        K2
+    );
+
+    printf("\n\nDecrypted plaintext:\n");
+
+    for (i = 0; i < 2; i++)
+    {
+        printBinary8(decrypted[i]);
+        printf(" ");
+    }
+
+    printf("\n");
+
+    return 0;
+}
